@@ -1,0 +1,7 @@
+name: 'CiviCRM Entity Views Filters'
+type: module
+description: 'Extra filters for CiviCRM views'
+core: 8.x
+package: 'Custom'
+dependencies:
+  - civicrm_entity

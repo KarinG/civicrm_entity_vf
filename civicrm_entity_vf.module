@@ -1,0 +1,24 @@
+<?php
+
+/**
+ * @file
+ * Contains civicrm_entity_vf.module.
+ */
+
+use Drupal\Core\Routing\RouteMatchInterface;
+
+/**
+ * Implements hook_help().
+ */
+function civicrm_entity_vf_help($route_name, RouteMatchInterface $route_match) {
+  switch ($route_name) {
+    // Main module help for the civicrm_entity_vf module.
+    case 'help.page.civicrm_entity_vf':
+      $output = '';
+      $output .= '<h3>' . t('About') . '</h3>';
+      $output .= '<p>' . t('Extra filters for CiviCRM views') . '</p>';
+      return $output;
+
+    default:
+  }
+}
