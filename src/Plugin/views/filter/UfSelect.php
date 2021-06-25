@@ -6,6 +6,7 @@ use Drupal\views\Views;
 use Drupal\views\Plugin\views\filter\InOperator;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\Entity\Query\QueryInterface;
 use Drupal\civicrm_entity\CiviCrmApiInterface;
 
@@ -15,6 +16,13 @@ use Drupal\civicrm_entity\CiviCrmApiInterface;
  * @ViewsFilter("civicrm_entity_vf_uf_select")
  */
 class UfSelect extends InOperator implements ContainerFactoryPluginInterface {
+
+  /**
+   * User entity storage.
+   *
+   * @var \Drupal\Core\Entity\EntityStorageInterface
+   */
+  protected $userEntityStorage;
 
   /**
    * User entity query.
@@ -39,13 +47,16 @@ class UfSelect extends InOperator implements ContainerFactoryPluginInterface {
    *   The plugin_id for the plugin instance.
    * @param mixed $plugin_definition
    *   The plugin implementation definition.
+   * @param Drupal\Core\Entity\EntityStorageInterface $userEntityStorage
+   *   User entity storage object.
    * @param Drupal\Core\Entity\Query\QueryInterface $userQuery
    *   User entity query object.
    * @param Drupal\civicrm_entity\CiviCrmApiInterface $civicrmApi
    *   The CiviCRM Api.
    */
-  public function __construct(array $configuration, $plugin_id, $plugin_definition, QueryInterface $userQuery, CiviCrmApiInterface $civicrmApi) {
+  public function __construct(array $configuration, $plugin_id, $plugin_definition, EntityStorageInterface $userEntityStorage, QueryInterface $userQuery, CiviCrmApiInterface $civicrmApi) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
+    $this->userEntityStorage = $userEntityStorage;
     $this->userQuery = $userQuery;
     $this->civicrmApi = $civicrmApi;
   }
@@ -55,7 +66,10 @@ class UfSelect extends InOperator implements ContainerFactoryPluginInterface {
    */
   public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition) {
     return new static($configuration, $plugin_id, $plugin_definition,
-      $container->get('entity_type.manager')->getStorage('user')->getQuery(), $container->get('civicrm_entity.api'));
+      $container->get('entity_type.manager')->getStorage('user'),
+      $container->get('entity_type.manager')->getStorage('user')->getQuery(),
+      $container->get('civicrm_entity.api')
+    );
   }
 
   /**
@@ -70,18 +84,27 @@ class UfSelect extends InOperator implements ContainerFactoryPluginInterface {
         ->condition('status', 1)
         ->execute();
 
+      // Get user display names.
+      $users = $this->userEntityStorage->loadMultiple($uids);
+      $user_display_names = [];
+      foreach ($users as $uid => $user) {
+        $user_display_names[$uid] = $user->getDisplayName();
+      }
+
       // Get matching list of CiviCRM contacts.
       $user_contacts = $this->civicrmApi->get('UFMatch', [
         'sequential' => 1,
         'uf_id' => ['IN' => $uids],
-        'return' => ['contact_id.id', 'contact_id.display_name'],
-        'options' => ['sort' => 'contact_id.display_name'],
+        'return' => ['uf_id', 'contact_id.id'],
       ]);
 
       // Build valueOptions.
       foreach ($user_contacts as $contact) {
-        $this->valueOptions[$contact['contact_id.id']] = $contact['contact_id.display_name'];
+        $this->valueOptions[$contact['contact_id.id']] = $user_display_names[$contact['uf_id']];
       }
+
+      // Sort by username.
+      natcasesort($this->valueOptions);
     }
 
     return $this->valueOptions;

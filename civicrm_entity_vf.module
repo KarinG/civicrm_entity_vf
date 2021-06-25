@@ -6,6 +6,107 @@
  */
 
 use Drupal\Core\Routing\RouteMatchInterface;
+use Drupal\Core\Form\FormStateInterface;
+
+/**
+ * Implements hook_form_user_form_alter().
+*/
+function civicrm_entity_vf_form_user_form_alter(&$form, FormStateInterface $form_state, $form_id){
+  $color_field = 'field_calendar_colour';
+
+  if (!empty($form[$color_field]) && $form[$color_field]['widget']['#type'] == 'radios') {
+    $form[$color_field]['widget']['#options_label_attributes'] = []; 
+    foreach ($form['field_calendar_colour']['widget']['#options'] as $k => $v) {
+      if (preg_match('/^#[a-fA-F0-9]{6}$/', $v)) {
+        $form[$color_field]['widget']['#options_label_attributes'][$k] = [
+          'style' => 'color: ' . $v . ';',
+        ];
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_views_exposed_form_alter().
+*/
+function civicrm_entity_vf_form_views_exposed_form_alter(&$form, FormStateInterface $form_state, $form_id){
+#header('Content-type: text/plain'); print_r($form); exit;
+
+  if (!empty($form['uf_select'])) {
+
+    // Get style options.
+    $style_options = $form_state->get('view')->getStyle()->options;
+
+    // Check that we're using a fullcalendar_view color taxonomy field.
+    if (empty($style_options['tax_field']) || empty($style_options['color_taxonomies'])) {
+      return;
+    }
+
+    // Check that the color taxonomy field is a user field.
+    $user_fields = array_keys(\Drupal::service('entity_field.manager')->getFieldDefinitions('user', 'user'));
+    if (!in_array($style_options['tax_field'], $user_fields)) {
+      return;
+    }
+
+    //
+    // Map civicrm contact ids to taxonomy term ids.
+    //
+
+    $contact_ids = array_keys($form['uf_select']['#options']); 
+
+    $uids = [];
+
+    $map_uid_cid = [];
+
+    $contact_tids = [];
+
+    $uid_lookup = \Drupal::service('civicrm_entity.api')->get('UFMatch', [
+      'sequential' => 1,
+      'return' => ['uf_id', 'contact_id'],
+      'contact_id' => ['IN' => $contact_ids],
+    ]);
+
+    foreach ($uid_lookup as $r) {
+      $uids[] = $r['uf_id'];
+      $map_uid_cid[$r['uf_id']] = $r['contact_id'];
+    }
+
+    $users = \Drupal::entityManager()->getStorage('user')->loadMultiple($uids);
+    foreach ($users as $user) {
+      $contact_tids[$map_uid_cid[$user->id()]] = $user->get($style_options['tax_field'])->first()->target_id;
+    }
+#    header('Content-type: text/plain'); print_r($contact_tids); exit;
+
+    //
+    // Add colors to checkboxes.
+    //
+
+    $options_attributes = [];
+    $options_label_attributes = [];
+    foreach ($contact_ids as $contact_id) {
+
+      $tid = $contact_tids[$contact_id];
+
+      if (!empty($style_options['color_taxonomies'][$tid])) {
+
+        $color = $style_options['color_taxonomies'][$tid];
+
+        $options_attributes[$contact_id] = [
+          'style' => 'background-color:' . $color . '; border-color:' . $color . ';' . 'color:' . $color . ';',
+	  // 'style' => 'border-color:' . $color . ';' . 'color:' . $color . ';',
+	  'class' => ['checkbox-colored'],
+        ];
+
+        $options_label_attributes[$contact_id] = [
+          'style' => 'color: ' . $color . ';',
+        ];
+      }
+    }
+
+    $form['uf_select']['#options_attributes'] = $options_attributes;
+//    $form['uf_select']['#options_label_attributes'] = $options_label_attributes;
+  }
+}
 
 /**
  * Implements hook_help().
