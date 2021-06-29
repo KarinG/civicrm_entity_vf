@@ -30,7 +30,6 @@ function civicrm_entity_vf_form_user_form_alter(&$form, FormStateInterface $form
  * Implements hook_views_exposed_form_alter().
 */
 function civicrm_entity_vf_form_views_exposed_form_alter(&$form, FormStateInterface $form_state, $form_id){
-#header('Content-type: text/plain'); print_r($form); exit;
 
   if (!empty($form['uf_select'])) {
 
@@ -51,16 +50,21 @@ function civicrm_entity_vf_form_views_exposed_form_alter(&$form, FormStateInterf
     }
 
     // Get user team contextual argument, if there is one.
-    if (count($view->args)) {
-      $i = 0;
-      foreach ($view->display_handler->getHandlers('argument') as $handler) {
-        if ('user.field_user_team_target_id' == $handler->getEntityType() . $handler->getField()) {
-          if (!empty($view->args[$i]) && preg_match('#^\d+$#', $view->args[$i])) {
-            $user_team_target_id = $view->args[$i];
+    $user_team_target_ids = [];
+    foreach ($view->display_handler->getHandlers('argument') as $handler) {
+      if ('taxonomy_term.tid' == $handler->getEntityType() . $handler->getField()) {
+        $tids = explode(' ', $handler->getValue());
+        $terms = \Drupal::service('entity.manager')->getStorage('taxonomy_term')->loadMultiple($tids);
+        if (!empty($terms)) {
+          foreach ($terms as $term) {
+            if ('user_team' == $term->bundle()) {
+              $user_team_target_ids[] = $term->id();
+            }
           }
-          break;
+          if (!empty($user_team_target_ids)) {
+            break;
+          }
         }
-        $i++;
       }
     }
 
@@ -86,8 +90,10 @@ function civicrm_entity_vf_form_views_exposed_form_alter(&$form, FormStateInterf
     $users = \Drupal::service('entity.manager')->getStorage('user')->loadMultiple(array_keys($map_uid_cid));
     foreach ($users as $user) {
       $contact_tids[$map_uid_cid[$user->id()]] = $user->get($style_options['tax_field'])->first()->target_id;
-			if (!empty($user_team_target_id) && in_array($user_team_target_id, array_column($user->get('field_user_team')->getValue(), 'target_id'))) {
-        $user_team[$map_uid_cid[$user->id()]] = $user->id();
+      foreach ($user_team_target_ids as $user_team_target_id) {
+        if (in_array($user_team_target_id, array_column($user->get('field_user_team')->getValue(), 'target_id'))) {
+          $user_team[$map_uid_cid[$user->id()]] = $user->id();
+        }
       }
     }
 
