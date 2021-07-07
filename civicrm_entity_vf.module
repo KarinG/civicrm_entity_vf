@@ -38,18 +38,16 @@ function civicrm_entity_vf_form_views_exposed_form_alter(&$form, FormStateInterf
     // Get style options.
     $style_options = $view->getStyle()->options;
 
-    // Check that we're using a fullcalendar_view color taxonomy field.
-    if (empty($style_options['tax_field']) || empty($style_options['color_taxonomies'])) {
-      return;
+    // Check for a fullcalendar legend based on a user taxonomy.
+    $is_user_taxonomy_color_legend = FALSE;
+    if (!empty($style_options['tax_field']) && !empty($style_options['color_taxonomies'])) {
+      $user_fields = array_keys(\Drupal::service('entity_field.manager')->getFieldDefinitions('user', 'user'));
+      if (in_array($style_options['tax_field'], $user_fields)) {
+        $is_user_taxonomy_color_legend = TRUE;
+      }
     }
 
-    // Check that the color taxonomy field is a user field.
-    $user_fields = array_keys(\Drupal::service('entity_field.manager')->getFieldDefinitions('user', 'user'));
-    if (!in_array($style_options['tax_field'], $user_fields)) {
-      return;
-    }
-
-    // Get user team contextual argument, if there is one.
+    // Check for a views contextual filter with term id args in the 'user_team' taxonomy.
     $user_team_target_ids = [];
     foreach ($view->display_handler->getHandlers('argument') as $handler) {
       if ('taxonomy_term.tid' == $handler->getEntityType() . $handler->getField()) {
@@ -89,7 +87,11 @@ function civicrm_entity_vf_form_views_exposed_form_alter(&$form, FormStateInterf
     // Check user fields for team and color.
     $users = \Drupal::service('entity.manager')->getStorage('user')->loadMultiple(array_keys($map_uid_cid));
     foreach ($users as $user) {
-      $contact_tids[$map_uid_cid[$user->id()]] = $user->get($style_options['tax_field'])->first()->target_id;
+
+      if ($is_user_taxonomy_color_legend) {
+        $contact_tids[$map_uid_cid[$user->id()]] = $user->get($style_options['tax_field'])->first()->target_id;
+      }
+
       foreach ($user_team_target_ids as $user_team_target_id) {
         if (in_array($user_team_target_id, array_column($user->get('field_user_team')->getValue(), 'target_id'))) {
           $user_team[$map_uid_cid[$user->id()]] = $user->id();
@@ -111,30 +113,33 @@ function civicrm_entity_vf_form_views_exposed_form_alter(&$form, FormStateInterf
     // Add colors to checkboxes.
     //
 
-    $options_attributes = [];
-    $options_label_attributes = [];
+    if ($is_user_taxonomy_color_legend) {
 
-    foreach ($contact_ids as $contact_id) {
+      $options_attributes = [];
+      $options_label_attributes = [];
 
-      $tid = $contact_tids[$contact_id];
+      foreach ($contact_ids as $contact_id) {
 
-      if (!empty($style_options['color_taxonomies'][$tid])) {
+        $tid = $contact_tids[$contact_id];
 
-        $color = $style_options['color_taxonomies'][$tid];
+        if (!empty($style_options['color_taxonomies'][$tid])) {
 
-        $options_attributes[$contact_id] = [
-          'style' => 'background-color:' . $color . ';border-color:' . $color . ';' . 'color:' . $color . ';',
-          'class' => ['checkbox-colored'],
-        ];
+          $color = $style_options['color_taxonomies'][$tid];
 
-        $options_label_attributes[$contact_id] = [
-          'style' => 'color: ' . $color . ';',
-        ];
+          $options_attributes[$contact_id] = [
+            'style' => 'background-color:' . $color . ';border-color:' . $color . ';' . 'color:' . $color . ';',
+            'class' => ['checkbox-colored'],
+          ];
+
+          $options_label_attributes[$contact_id] = [
+            'style' => 'color: ' . $color . ';',
+          ];
+        }
       }
-    }
 
-    $form['uf_select']['#options_attributes'] = $options_attributes;
-//    $form['uf_select']['#options_label_attributes'] = $options_label_attributes;
+      $form['uf_select']['#options_attributes'] = $options_attributes;
+      // $form['uf_select']['#options_label_attributes'] = $options_label_attributes;
+    }
   }
 }
 
