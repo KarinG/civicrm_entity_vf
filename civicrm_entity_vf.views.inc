@@ -16,4 +16,16 @@ function civicrm_entity_vf_views_data_alter(array &$data) {
     ],
   ];
 
+  // Add a field to provide activity assignee contact ids in query string format.
+  $data['civicrm_activity']['activity_assignees_string'] = [
+    'real field' => 'id',
+    'title' => 'Activity Assignees Query String',
+    'field' => [
+      'title' => 'Activity Assignees Query String',
+      'help' => 'Activity assignee contact IDs in a query string.',
+      'real field' => 'id',
+      'id' => 'civicrm_entity_vf_activity_assignees_string',
+    ],
+  ];
+
 }
