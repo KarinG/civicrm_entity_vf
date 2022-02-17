@@ -95,6 +95,7 @@ class UfSelect extends InOperator implements ContainerFactoryPluginInterface {
       $user_contacts = $this->civicrmApi->get('UFMatch', [
         'sequential' => 1,
         'uf_id' => ['IN' => $uids],
+        'options' => ['limit' => count($uids)],
         'return' => ['uf_id', 'contact_id.id'],
       ]);
 

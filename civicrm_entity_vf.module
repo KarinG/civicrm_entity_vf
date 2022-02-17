@@ -52,7 +52,7 @@ function civicrm_entity_vf_form_views_exposed_form_alter(&$form, FormStateInterf
     foreach ($view->display_handler->getHandlers('argument') as $handler) {
       if ('taxonomy_term.tid' == $handler->getEntityType() . $handler->getField()) {
         $tids = explode(' ', $handler->getValue());
-        $terms = \Drupal::service('entity.manager')->getStorage('taxonomy_term')->loadMultiple($tids);
+	$terms = \Drupal::entityTypeManager()->getStorage('taxonomy_term')->loadMultiple($tids);
         if (!empty($terms)) {
           foreach ($terms as $term) {
             if ('user_team' == $term->bundle()) {
@@ -79,13 +79,14 @@ function civicrm_entity_vf_form_views_exposed_form_alter(&$form, FormStateInterf
       'sequential' => 1,
       'return' => ['uf_id', 'contact_id'],
       'contact_id' => ['IN' => $contact_ids],
+      'options' => ['limit' => count($contact_ids)],
     ]);
     foreach ($uid_lookup as $r) {
       $map_uid_cid[$r['uf_id']] = $r['contact_id'];
     }
 
     // Check user fields for team and color.
-    $users = \Drupal::service('entity.manager')->getStorage('user')->loadMultiple(array_keys($map_uid_cid));
+    $users = \Drupal::entityTypeManager()->getStorage('user')->loadMultiple(array_keys($map_uid_cid));
     foreach ($users as $user) {
 
       if ($is_user_taxonomy_color_legend) {
