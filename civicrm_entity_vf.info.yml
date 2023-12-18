@@ -1,7 +1,7 @@
 name: 'CiviCRM Entity Views Filters'
 type: module
 description: 'Extra filters for CiviCRM views'
-core_version_requirement: ^8.8 || ^9
+core_version_requirement: ^8.8 || ^9 || ^10
 package: 'Custom'
 dependencies:
   - civicrm_entity
